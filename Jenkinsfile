@@ -1,14 +1,8 @@
 pipeline {
     agent any
-    parameters {
-        string(name: 'phase1', defaultValue: 'clean test', description: 'mvn phase')
-        string(name: 'phase2', defaultValue: 'package', description: 'mvn phase')
-        string(name: 'version', defaultValue: '3.4.0-SNAPSHOT', description: 'snap version')
-    }
-    environment {
-        ARTIFACT_ID = "spring-petclinic"
-        SNAP_VERSION = "${params.version}"
-        IMAGE_NAME = "devopswithdayanand/spring-pet-project-m2:$SNAP_VERSION"
+    
+     environment {
+        VERSION = "3.4.0-SNAPSHOT"
     }
 
     stages {
@@ -24,57 +18,51 @@ pipeline {
             """, 
              cc: '', from: '', replyTo: '', 
              subject: "[Jenkins] ${env.JOB_NAME} is started", 
-             to: 'sewin21172@anysilo.com'
+             to: 'a23489200@gmail.com'
             }
         }
         stage('Git Checkout') {
             steps {
-                checkout scm
+                git branch: 'main', url: 'https://github.com/aadi5546/spring-petclinic-k8.git'
             }
         }
-        stage('Testing') {
+        stage('Maven Test') {
             steps {
-                sh "mvn ${params.phase1}"
+                sh 'mvn test'
             }
         }
-        stage('Sonar Scan') {
+        stage('Sonarqube') {
             steps {
-                withSonarQubeEnv(installationName: 'sonarqube', credentialsId: 'sonar-cred') {
+                withSonarQubeEnv(installationName:'Sonarqube', credentialsId: 'sonar') {
                     sh 'mvn sonar:sonar'
                 }
             }
         }
-        stage('Package') {
+        stage('Maven Package') {
             steps {
-                sh "mvn ${params.phase2}"
-                archiveArtifacts artifacts: "target/*.jar", fingerprint: true
+                sh 'mvn package'
             }
         }
-        stage('Nexus Upload') {
+        stage('Nexus Uploader') {
             steps {
-                nexusArtifactUploader artifacts: [[artifactId: 'spring-petclinic', 
-                    classifier: '', file: 'target/spring-petclinic-3.4.0-SNAPSHOT.jar', 
-                    type: 'jar']], credentialsId: 'Nexus_cred', groupId: 'org.springframework.samples', 
-                    nexusUrl: '172.31.39.206:8081', nexusVersion: 'nexus3', 
-                    protocol: 'http', repository: 'spring-petclinic', version: "$SNAP_VERSION"
+                nexusArtifactUploader artifacts: [[artifactId: 'spring-petclinic', classifier: '', file: 'target/spring-petclinic-3.4.0-SNAPSHOT.jar', type: '.jar']], credentialsId: 'nexus', groupId: 'org.springframework.samples', nexusUrl: '34.203.237.221:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'spring-petclinic', version: '$VERSION'
             }
         }
-
         stage('Docker Image Build') {
             steps {
-                sh "docker build -t $IMAGE_NAME ."
+                sh "docker build -t aadii10/spring-petclinic-k8s:$VERSION ."
             }
         }
         
         stage('Docker Image Push') {
             steps {
-                sh "docker push $IMAGE_NAME"
+                sh "docker push aadii10/spring-petclinic-k8s:$VERSION"
             }
         }
-        
-        stage('deply to eks') {
+        stage('Kube deploy') {
+            
             steps {
-                sh "aws eks --region ap-northeast-1 update-kubeconfig --name demo-cluster"
+                sh "aws eks --region us-east-1 update-kubeconfig --name demo-cluster"
                 sh "helm upgrade --install petclinic ./petclinic-helm"
             }
         }
@@ -98,7 +86,7 @@ pipeline {
             """, 
              cc: '', from: '', replyTo: '', 
              subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} - Success", 
-             to: 'sewin21172@anysilo.com'
+             to: 'a23489200@gmail.com'
         }
         failure {
             mail bcc: '', 
@@ -118,7 +106,7 @@ pipeline {
                 """, 
                  cc: '', from: '', replyTo: '', 
                  subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} - Failed", 
-                 to: 'sewin21172@anysilo.com'
+                 to: 'a23489200@gmail.com'
         }
     }
 }
